@@ -1,0 +1,6 @@
+aiogram==3.31.0
+SQLAlchemy==2.1.5
+asyncpg==0.32.0
+pydantic==2.13.5
+pydantic-settings==2.16.0
+pytz==2026.5

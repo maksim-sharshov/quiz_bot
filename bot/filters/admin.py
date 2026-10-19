@@ -1,14 +1,16 @@
 from aiogram.filters import BaseFilter
-from aiogram.types import Message
+from aiogram.types import TelegramObject
 
 from settings import settings
 
 
 class IsAdmin(BaseFilter):
-    async def __call__(self, msg: Message) -> bool:
-        """
-        Check user in db
-        :param msg: Message
-        :return: bool
-        """
-        return msg.from_user.id in settings.bot.ADMINS
+    """
+    Пропускает событие, только если его отправил администратор.
+    Работает и для Message, и для CallbackQuery.
+    """
+
+    async def __call__(self, event: TelegramObject) -> bool:
+        user = getattr(event, "from_user", None)
+        admins = settings.bot.ADMINS or []
+        return bool(user and user.id in admins)

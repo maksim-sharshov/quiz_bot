@@ -1,71 +1,69 @@
-from aiogram import Router, types, F
-from aiogram.types import Message
-from aiogram.filters import Command
+from aiogram import Router
+from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
+from aiogram.types import Message
 
-from core.bot import bot
-from settings import settings
-
-import bot.keyboards.user.commands as k
+import bot.keyboards.user.room as k_room
+import bot.services as s
 import bot.templates.user.commands as t
-
-from bot.filters.user import NewUser
+import bot.templates.user.room as t_room
+import bot.utils as u
+import db.psql.crud.admin as db_admin
 from db.psql.models.models import Users
 
-
-router = Router()
-router.message.filter(F.chat.type == "private")
+router = Router(name="user_commands")
 
 
-# Новый пользователь
-@router.message(Command("start"), NewUser())
-async def new_user_start(message: Message, state: FSMContext):
-
-    # Очистка истории сообщений
-    if message.from_user.id not in settings.bot.ADMINS:
-        return
-    
-    # Добавляем в БД
-    await message.delete()
-    tg_id = message.from_user.id
-    username = message.from_user.username
-    await Users.create(tg_id=tg_id, username=username)
-
-    await message.answer(
-        text=t.start_user_msg,
-        reply_markup=k.futures_menu
-    )
-    await state.clear()
-
-
-# Старый пользователь
 @router.message(Command("start"))
-async def start_command(message: Message, state: FSMContext):
+async def start(message: Message, command: CommandObject, state: FSMContext):
     """
-    /start command
-    :param msg: Message
-    :param state: FSMContext
-    :return:
+    /start игрока. Поддерживает deep-link `room_<код>` для входа в комнату.
     """
-    # Очистка истории сообщений
-    if message.from_user.id not in settings.bot.ADMINS:
+    await state.clear()
+
+    tg_id = message.from_user.id
+    if not await Users.check(tg_id=tg_id):
+        await Users.create(tg_id=tg_id, username=message.from_user.username)
+
+    payload = (command.args or "").strip()
+    if payload.startswith("room_"):
+        await _join_room(message, state, payload[len("room_"):])
         return
 
-    await message.delete()
-    await message.answer(
-        text=t.start_user_msg,
-        reply_markup=k.futures_menu
+    await message.answer(t.greeting_msg)
+
+
+async def _join_room(message: Message, state: FSMContext, code: str) -> None:
+    """Вход игрока в комнату по коду."""
+    room = await db_admin.get_room_by_code(code)
+    if room is None:
+        await message.answer(t.room_not_found_msg)
+        return
+
+    if room.status in (u.ROOM_FINISHED, u.ROOM_INTERRUPTED):
+        await message.answer(t.room_finished_msg)
+        return
+    if room.status != u.ROOM_OPEN:
+        await message.answer(t.room_closed_msg)
+        return
+
+    status = await s.room.try_join(
+        message.bot, room, message.from_user.id, message.from_user.username
     )
+    if status == "busy":
+        await message.answer(t.already_in_room_msg)
+        return
+    if status == "already":
+        await message.answer(t.already_joined_msg)
+        return
 
-    await state.clear()
+    category = await db_admin.get_category(room.category_id)
+    title = category.title if category else ""
+    count = await db_admin.count_active_players(room.id)
 
-
-# Обработка кнопки "Меню"
-@router.callback_query(F.data == "go_menu_user")
-async def go_menu_user(callback: types.CallbackQuery, state: FSMContext):
-
-    await callback.message.edit_text(
-        text=t.start_user_msg,
-        reply_markup=k.futures_menu
+    lobby = await message.answer(
+        t_room.room_lobby_msg(title, room.timer_sec, count),
+        reply_markup=k_room.room_lobby_keyb(room.id),
     )
-    await state.clear()
+    await db_admin.set_lobby_message(room.id, message.from_user.id, lobby.message_id)
+    await s.room.refresh_room_messages(message.bot, room)

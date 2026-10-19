@@ -1,5 +1,7 @@
-from bot.handlers.user.commands import router as commands
+from bot.handlers.admin import router as admin_router
+from bot.handlers.user import router as user_router
 
 routers = [
-    commands
+    admin_router,
+    user_router,
 ]

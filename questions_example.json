@@ -1,0 +1,29 @@
+[
+  {
+    "text": "Какой тип данных в Python неизменяемый?",
+    "options": [
+      { "text": "list", "is_correct": false },
+      { "text": "tuple", "is_correct": true },
+      { "text": "dict", "is_correct": false },
+      { "text": "set", "is_correct": false }
+    ]
+  },
+  {
+    "text": "Какие из перечисленных языков являются компилируемыми?",
+    "options": [
+      { "text": "C++", "is_correct": true },
+      { "text": "Go", "is_correct": true },
+      { "text": "Python", "is_correct": false },
+      { "text": "Rust", "is_correct": true },
+      { "text": "JavaScript", "is_correct": false }
+    ]
+  },
+  {
+    "text": "Что выведет print(2 ** 3)?",
+    "options": [
+      { "text": "6", "is_correct": false },
+      { "text": "8", "is_correct": true },
+      { "text": "9", "is_correct": false }
+    ]
+  }
+]

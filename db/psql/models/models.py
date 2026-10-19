@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.future import select as sqlalchemy_select
 from sqlalchemy.orm import Mapped, selectinload, load_only
 from sqlalchemy.sql import select, update as sqlalchemy_update
+from sqlalchemy import ForeignKey, Integer, Boolean, Text, UniqueConstraint
 
 from db.psql.models.mapped_columns import *
 from core.psql import async_db_session, Base
@@ -249,3 +250,85 @@ class VAFuturesData(Base, ModelAdmin):
         nullable=False,
         comment="Структурированные данные по VA (пример: {'4h': {'vah':123, 'poc':2342, 'val':23432}, '1h': {...}})"
     )
+
+
+# --- Квиз «Крис» ---
+
+# Категории вопросов
+class QuizCategories(Base, ModelAdmin):
+
+    __tablename__ = "quiz_categories"
+
+    id: Mapped[intpk]
+    title: Mapped[str] = mapped_column(String(240), unique=True, comment="Название категории")
+    date_registration: Mapped[datetime] = mapped_column(default=now_moscow)
+
+
+# Вопросы категорий
+class QuizQuestions(Base, ModelAdmin):
+
+    __tablename__ = "quiz_questions"
+
+    id: Mapped[intpk]
+    category_id: Mapped[int] = mapped_column(
+        ForeignKey("quiz_categories.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(Text, comment="Формулировка вопроса")
+    # [{"text": str, "is_correct": bool}, ...]
+    options: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    date_registration: Mapped[datetime] = mapped_column(default=now_moscow)
+
+
+# Комнаты квиза
+class QuizRooms(Base, ModelAdmin):
+
+    __tablename__ = "quiz_rooms"
+
+    id: Mapped[intpk]
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, comment="Код приглашения")
+    category_id: Mapped[int] = mapped_column(ForeignKey("quiz_categories.id", ondelete="CASCADE"))
+    timer_sec: Mapped[int] = mapped_column(Integer, default=10, comment="Секунд на вопрос")
+    status: Mapped[str] = mapped_column(
+        String(32), default="open", index=True,
+        comment="open / in_progress / finished / interrupted"
+    )
+    admin_tg_id: Mapped[int] = mapped_column(BigInteger)
+    admin_chat_id: Mapped[int] = mapped_column(BigInteger)
+    admin_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    date_created: Mapped[datetime] = mapped_column(default=now_moscow)
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+
+# Игроки комнаты
+class QuizRoomPlayers(Base, ModelAdmin):
+
+    __tablename__ = "quiz_room_players"
+
+    id: Mapped[intpk]
+    room_id: Mapped[int] = mapped_column(
+        ForeignKey("quiz_rooms.id", ondelete="CASCADE"), index=True
+    )
+    tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    username: Mapped[str | None]
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    lobby_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    date_joined: Mapped[datetime] = mapped_column(default=now_moscow)
+
+    __table_args__ = (UniqueConstraint("room_id", "tg_id", name="uq_room_player"),)
+
+
+# История ответов игроков
+class QuizRoomAnswers(Base, ModelAdmin):
+
+    __tablename__ = "quiz_room_answers"
+
+    id: Mapped[intpk]
+    room_id: Mapped[int] = mapped_column(
+        ForeignKey("quiz_rooms.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[int] = mapped_column(ForeignKey("quiz_questions.id", ondelete="CASCADE"))
+    tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    selected: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    points: Mapped[int] = mapped_column(Integer, default=0)
+    date_answer: Mapped[datetime] = mapped_column(default=now_moscow)
