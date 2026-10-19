@@ -89,22 +89,31 @@ async def _run_quiz(bot: Bot, storage, room) -> None:
 
 async def _run_question(bot: Bot, storage, room, question, options, index: int, total: int) -> None:
     players = await db_admin.get_room_players(room.id)
+    correct_count = sum(1 for option in options if option.get("is_correct"))
+    multiple = correct_count > 1
     deadline = asyncio.get_running_loop().time() + room.timer_sec
 
     tasks = [
         asyncio.create_task(
-            _ask_player(bot, storage, room, question, options, index, total, player, deadline)
+            _ask_player(
+                bot, storage, room, question, options, index, total, player, deadline, multiple
+            )
         )
         for player in players
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     selected_map: dict[int, set[int]] = {}
+    message_map: dict[int, int] = {}
     for player, result in zip(players, results):
         if isinstance(result, Exception):
             logger.warning("Таймер игрока %s завершился ошибкой: %s", player.tg_id, result)
             continue
-        selected_map[player.tg_id] = result or set()
+        if not result:
+            continue
+        selected, message_id = result
+        selected_map[player.tg_id] = selected
+        message_map[player.tg_id] = message_id
 
     scorers: list[tuple[str, int]] = []
     for player in players:
@@ -119,9 +128,16 @@ async def _run_question(bot: Bot, storage, room, question, options, index: int, 
     board = scoring.build_leaderboard(all_players)
     text = t_user_game.results_msg(scoring.correct_texts(options), scorers, board)
 
-    unreachable = await b.broadcast(bot, [player.tg_id for player in all_players], text)
-    for tg_id in unreachable:
-        await _drop_unreachable(bot, storage, room, tg_id)
+    # Итог вопроса показываем прямо в сообщении с вопросом у каждого игрока
+    for player in all_players:
+        message_id = message_map.get(player.tg_id)
+        if message_id:
+            await b.safe_edit_text(bot, player.tg_id, message_id, text, None)
+            continue
+        try:
+            await b.safe_send(bot, player.tg_id, text)
+        except b.PlayerUnreachable:
+            await _drop_unreachable(bot, storage, room, player.tg_id)
 
 
 async def _ask_player(
@@ -134,7 +150,8 @@ async def _ask_player(
     total: int,
     player,
     deadline: float,
-) -> set[int] | None:
+    multiple: bool,
+) -> tuple[set[int], int] | None:
     """Отдельная задача таймера одного игрока."""
     key = StorageKey(bot_id=bot.id, chat_id=player.tg_id, user_id=player.tg_id)
     context = FSMContext(storage=storage, key=key)
@@ -153,7 +170,9 @@ async def _ask_player(
         message = await b.safe_send(
             bot,
             player.tg_id,
-            t_user_game.question_msg(bar, room.timer_sec, index, total, question.text),
+            t_user_game.question_msg(
+                bar, room.timer_sec, index, total, question.text, multiple
+            ),
             k_user_game.answer_keyb(room.id, question.id, options, set()),
         )
     except b.PlayerUnreachable:
@@ -181,6 +200,7 @@ async def _ask_player(
                 index,
                 total,
                 question.text,
+                multiple,
             ),
             k_user_game.answer_keyb(room.id, question.id, options, selected),
         )
@@ -190,14 +210,9 @@ async def _ask_player(
 
     await context.update_data(finished=True)
     await context.set_state(None)
-    await b.safe_edit_text(
-        bot,
-        player.tg_id,
-        message.message_id,
-        t_user_game.timeout_msg(selected, options),
-        k_user_game.empty_keyb,
-    )
-    return selected
+    # Кнопки гасим, но текст вопроса не трогаем: итог придёт сразу после подсчёта
+    await b.safe_edit_markup(bot, player.tg_id, message.message_id, k_user_game.empty_keyb)
+    return selected, message.message_id
 
 
 async def _drop_unreachable(bot: Bot, storage, room, tg_id: int) -> None:

@@ -5,14 +5,22 @@
 
 def compute_points(selected: set[int], options: list[dict]) -> int:
     """
-    Правила начисления: +1 балл за каждый правильно выбранный вариант.
-    Неверный вариант ничего не отнимает, итог не опускается ниже нуля.
+    Правила начисления:
+    - если выбран хотя бы один неверный вариант, за вопрос начисляется 0 баллов;
+    - иначе +1 балл за каждый правильно выбранный вариант (неполный набор верных
+      вариантов допускается и приносит баллы за отмеченные правильные);
+    - пустой выбор даёт 0 баллов.
     """
+    if not selected:
+        return 0
     points = 0
     for index in selected:
-        if 0 <= index < len(options) and options[index].get("is_correct"):
-            points += 1
-    return max(0, points)
+        if not 0 <= index < len(options):
+            return 0
+        if not options[index].get("is_correct"):
+            return 0
+        points += 1
+    return points
 
 
 def correct_texts(options: list[dict]) -> list[str]:

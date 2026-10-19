@@ -9,25 +9,22 @@ def timer_bar(left: int, total: int) -> str:
     return TIMER_BAR_FILLED * left + TIMER_BAR_EMPTY * (total - left)
 
 
-def question_msg(bar: str, seconds_left: int, index: int, total: int, text: str) -> str:
+def question_msg(
+    bar: str,
+    seconds_left: int,
+    index: int,
+    total: int,
+    text: str,
+    multiple: bool = False,
+) -> str:
     """Текст сообщения с вопросом и таймером."""
+    hint = "\nℹ️ Правильных ответов несколько — отметьте все." if multiple else ""
     return (
         f"❓ Вопрос {index}/{total}\n\n"
-        f"{escape(text)}\n\n"
+        f"{escape(text)}{hint}\n\n"
         f"⏳ Шкала времени: {bar}\n"
         f"Осталось секунд: {seconds_left}"
     )
-
-
-def timeout_msg(selected: set, options: list[dict]) -> str:
-    """Итог игрока, когда время вышло."""
-    if selected:
-        chosen = ", ".join(
-            options[i]["text"] for i in sorted(selected) if 0 <= i < len(options)
-        )
-    else:
-        chosen = "ничего не выбрано"
-    return f"⏰ Время вышло!\nВаш выбор: {escape(chosen)}"
 
 
 stale_answer_msg = "⏰ Время на этот вопрос уже вышло."
@@ -61,8 +58,12 @@ def results_msg(
 ) -> str:
     """Итог одного вопроса: правильные ответы, угадавшие и таблица лидеров."""
     correct = ", ".join(correct_options) if correct_options else "—"
+    if len(correct_options) > 1:
+        header = f"✅ Правильные ответы (их несколько — {len(correct_options)}): {escape(correct)}"
+    else:
+        header = f"✅ Правильный ответ: {escape(correct)}"
     return (
-        f"✅ Правильные ответы: {escape(correct)}\n\n"
+        f"{header}\n\n"
         f"🎯 Угадали:\n{scorers_text(scorers)}\n\n"
         f"🏁 Таблица лидеров:\n{leaderboard_text(board)}"
     )

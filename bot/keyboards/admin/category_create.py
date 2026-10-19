@@ -2,6 +2,8 @@ from aiogram.enums import ButtonStyle
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+import bot.keyboards.admin.start as k_start
+
 
 class CategoryCreateCB(CallbackData, prefix="a_cc"):
     """Подтверждение или отмена черновика категории."""
@@ -22,6 +24,13 @@ confirm_keyb = InlineKeyboardMarkup(
                 callback_data=CategoryCreateCB(action="cancel").pack(),
                 style=ButtonStyle.DANGER,
             ),
-        ]
+        ],
+        [
+            InlineKeyboardButton(
+                text="🏠 В меню",
+                callback_data=k_start.AdminMenuCB(action="menu").pack(),
+                style=ButtonStyle.PRIMARY,
+            )
+        ],
     ]
 )

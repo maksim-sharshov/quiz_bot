@@ -16,7 +16,7 @@ async def ask_name(callback: CallbackQuery, state: FSMContext):
     """Запросить название новой категории."""
     await state.clear()
     await state.set_state(u.QuizState.waiting_category_name)
-    await callback.message.edit_text(t.ask_name_msg)
+    await callback.message.edit_text(t.ask_name_msg, reply_markup=k_start.menu_keyb)
     await callback.answer()
 
 
@@ -26,13 +26,13 @@ async def receive_name(message: Message, state: FSMContext):
     title = (message.text or "").strip()
 
     if not title:
-        await message.answer(t.title_empty_msg)
+        await message.answer(t.title_empty_msg, reply_markup=k_start.menu_keyb)
         return
     if len(title) > u.MAX_CATEGORY_TITLE_LEN:
-        await message.answer(t.title_long_msg)
+        await message.answer(t.title_long_msg, reply_markup=k_start.menu_keyb)
         return
     if await db_admin.get_category_by_title(title):
-        await message.answer(t.title_duplicate_msg(title))
+        await message.answer(t.title_duplicate_msg(title), reply_markup=k_start.menu_keyb)
         return
 
     await state.update_data(category_title=title)

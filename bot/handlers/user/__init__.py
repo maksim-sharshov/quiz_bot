@@ -7,7 +7,7 @@ from bot.handlers.user.game import router as game_router
 
 router = Router(name="user")
 router.message.filter(F.chat.type == "private", IsPlayer())
-router.callback_query.filter(IsPlayer())
+router.callback_query.filter(F.message.chat.type == "private")
 
 router.include_router(commands_router)
 router.include_router(room_router)

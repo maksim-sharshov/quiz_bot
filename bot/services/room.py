@@ -40,8 +40,9 @@ async def create_room(
     admin_chat_id: int,
     category_id: int,
     timer_sec: int,
+    admin_username: str | None = None,
 ):
-    """Создать комнату с уникальным кодом."""
+    """Создать комнату с уникальным кодом. Администратор сразу становится участником."""
     code = u.generate_room_code()
     while await db_admin.get_room_by_code(code):
         code = u.generate_room_code()
@@ -53,6 +54,7 @@ async def create_room(
         admin_tg_id=admin_tg_id,
         admin_chat_id=admin_chat_id,
     )
+    await db_admin.add_player(room.id, admin_tg_id, admin_username)
     logger.info("Создана комната %s (код %s) для категории %s", room.id, code, category_id)
     return room
 
@@ -71,6 +73,52 @@ async def try_join(bot: Bot, room, tg_id: int, username: str | None) -> str:
         return "already"
 
     await db_admin.add_player(room.id, tg_id, username)
+    return "joined"
+
+
+async def enter_room(
+    bot: Bot,
+    chat_id: int,
+    tg_id: int,
+    username: str | None,
+    code: str,
+) -> str:
+    """
+    Полный вход в комнату по коду (для игрока и администратора).
+    Отправляет игроку лобби и обновляет панели.
+    Возвращает: "not_found" | "finished" | "closed" | "busy" | "already" | "joined" | "unreachable".
+    """
+    room = await db_admin.get_room_by_code(code)
+    if room is None:
+        return "not_found"
+
+    if room.status in (u.ROOM_FINISHED, u.ROOM_INTERRUPTED):
+        return "finished"
+    if room.status != u.ROOM_OPEN:
+        return "closed"
+
+    status = await try_join(bot, room, tg_id, username)
+    if status != "joined":
+        return status
+
+    category = await db_admin.get_category(room.category_id)
+    title = category.title if category else ""
+    count = await db_admin.count_active_players(room.id)
+
+    try:
+        lobby = await b.safe_send(
+            bot,
+            chat_id,
+            t_user_room.room_lobby_msg(title, room.timer_sec, count),
+            k_user_room.room_lobby_keyb(room.id),
+        )
+    except b.PlayerUnreachable:
+        await leave_player(bot, room, tg_id)
+        return "unreachable"
+
+    if lobby is not None:
+        await db_admin.set_lobby_message(room.id, tg_id, lobby.message_id)
+    await refresh_room_messages(bot, room)
     return "joined"
 
 

@@ -41,3 +41,15 @@ main_menu_keyb = InlineKeyboardMarkup(
         ],
     ]
 )
+
+menu_keyb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="🏠 В меню",
+                callback_data=AdminMenuCB(action="menu").pack(),
+                style=ButtonStyle.PRIMARY,
+            )
+        ]
+    ]
+)
