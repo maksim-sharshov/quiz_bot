@@ -22,3 +22,7 @@ def room_lobby_keyb(room_id: int) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+# Пустая клавиатура — явно убирает кнопки.
+empty_keyb = InlineKeyboardMarkup(inline_keyboard=[])

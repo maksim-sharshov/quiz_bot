@@ -42,11 +42,11 @@ def scorers_text(scorers: list[tuple[str, int]]) -> str:
 
 
 def leaderboard_text(board: list[dict]) -> str:
-    """Таблица лидеров с 🏆 у первых трёх мест."""
+    """Таблица лидеров: место, имя (first_name + last_name), очки."""
     lines: list[str] = []
     for row in board:
         prefix = "🏆" if row["place"] <= 3 else ""
-        name = row["username"] or f"Игрок {row['tg_id']}"
+        name = row["name"] or f"Игрок {row['tg_id']}"
         lines.append(f"{prefix} {row['place']}. {escape(str(name))} — {row['score']}".strip())
     return "\n".join(lines)
 

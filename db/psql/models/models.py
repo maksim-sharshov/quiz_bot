@@ -310,6 +310,8 @@ class QuizRoomPlayers(Base, ModelAdmin):
     )
     tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
     username: Mapped[str | None]
+    first_name: Mapped[str | None]
+    last_name: Mapped[str | None]
     score: Mapped[int] = mapped_column(Integer, default=0)
     lobby_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

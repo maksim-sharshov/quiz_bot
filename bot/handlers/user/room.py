@@ -18,5 +18,5 @@ async def leave_room(callback: CallbackQuery, callback_data: k.RoomLeaveCB, stat
         await s.room.leave_player(callback.bot, room, callback.from_user.id)
 
     await state.clear()
-    await callback.message.edit_text(t.you_left_msg)
+    await callback.message.edit_text(t.you_left_msg, reply_markup=k.empty_keyb)
     await callback.answer()

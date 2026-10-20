@@ -1,13 +1,15 @@
 from html import escape
 
+from bot.templates.common import participants_text
 
-def room_panel_msg(category_title: str, timer_sec: int, players: int, link: str) -> str:
+
+def room_panel_msg(category_title: str, timer_sec: int, names: list[str], link: str) -> str:
     """Панель управления комнатой у администратора."""
     return (
         f"🏁 Комната квиза\n\n"
         f"📂 Категория: <b>{escape(category_title)}</b>\n"
         f"⏱ Таймер на вопрос: {timer_sec} сек\n"
-        f"👥 Участников: {players}\n\n"
+        f"{participants_text(names)}\n\n"
         f"🔗 Ссылка-приглашение:\n{link}"
     )
 

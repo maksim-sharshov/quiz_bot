@@ -1,5 +1,7 @@
 from html import escape
 
+from bot.templates.common import participants_text
+
 no_categories_msg = "📭 Категорий пока нет. Сначала создайте категорию."
 
 choose_category_msg = "🎯 Выберите категорию для квиза:"
@@ -17,13 +19,13 @@ def room_created_msg(
     category_title: str,
     timer_sec: int,
     link: str,
-    players: int,
+    names: list[str],
 ) -> str:
     return (
         f"🏁 Квиз создан!\n\n"
         f"📂 Категория: <b>{escape(category_title)}</b>\n"
         f"⏱ Таймер на вопрос: {timer_sec} сек\n"
-        f"👥 Участников: {players}\n\n"
+        f"{participants_text(names)}\n\n"
         f"🔗 Ссылка-приглашение:\n{link}\n\n"
         f"Отправьте ссылку игрокам и нажмите «Начать квиз»."
     )

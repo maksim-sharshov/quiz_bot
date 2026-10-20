@@ -41,6 +41,8 @@ async def create_room(
     category_id: int,
     timer_sec: int,
     admin_username: str | None = None,
+    admin_first_name: str | None = None,
+    admin_last_name: str | None = None,
 ):
     """Создать комнату с уникальным кодом. Администратор сразу становится участником."""
     code = u.generate_room_code()
@@ -54,12 +56,25 @@ async def create_room(
         admin_tg_id=admin_tg_id,
         admin_chat_id=admin_chat_id,
     )
-    await db_admin.add_player(room.id, admin_tg_id, admin_username)
+    await db_admin.add_player(
+        room.id,
+        admin_tg_id,
+        admin_username,
+        first_name=admin_first_name,
+        last_name=admin_last_name,
+    )
     logger.info("Создана комната %s (код %s) для категории %s", room.id, code, category_id)
     return room
 
 
-async def try_join(bot: Bot, room, tg_id: int, username: str | None) -> str:
+async def try_join(
+    bot: Bot,
+    room,
+    tg_id: int,
+    username: str | None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+) -> str:
     """
     Попытка входа игрока в комнату.
     Возвращает: "busy" | "already" | "joined".
@@ -72,7 +87,13 @@ async def try_join(bot: Bot, room, tg_id: int, username: str | None) -> str:
     if existing and existing.is_active:
         return "already"
 
-    await db_admin.add_player(room.id, tg_id, username)
+    await db_admin.add_player(
+        room.id,
+        tg_id,
+        username,
+        first_name=first_name,
+        last_name=last_name,
+    )
     return "joined"
 
 
@@ -82,6 +103,8 @@ async def enter_room(
     tg_id: int,
     username: str | None,
     code: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
 ) -> str:
     """
     Полный вход в комнату по коду (для игрока и администратора).
@@ -97,19 +120,27 @@ async def enter_room(
     if room.status != u.ROOM_OPEN:
         return "closed"
 
-    status = await try_join(bot, room, tg_id, username)
+    status = await try_join(
+        bot,
+        room,
+        tg_id,
+        username,
+        first_name=first_name,
+        last_name=last_name,
+    )
     if status != "joined":
         return status
 
     category = await db_admin.get_category(room.category_id)
     title = category.title if category else ""
-    count = await db_admin.count_active_players(room.id)
+    players = await db_admin.get_room_players(room.id)
+    names = [u.display_name(player) for player in players]
 
     try:
         lobby = await b.safe_send(
             bot,
             chat_id,
-            t_user_room.room_lobby_msg(title, room.timer_sec, count),
+            t_user_room.room_lobby_msg(title, room.timer_sec, names),
             k_user_room.room_lobby_keyb(room.id),
         )
     except b.PlayerUnreachable:
@@ -132,12 +163,12 @@ async def leave_player(bot: Bot, room, tg_id: int) -> bool:
 
 
 async def refresh_room_messages(bot: Bot, room) -> None:
-    """Обновить панель администратора и лобби всех игроков (счётчик)."""
+    """Обновить панель администратора и лобби всех игроков (участники и их имена)."""
     fresh = await db_admin.get_room(room.id) or room
     category = await db_admin.get_category(fresh.category_id)
     title = category.title if category else ""
     players = await db_admin.get_room_players(fresh.id)
-    count = len(players)
+    names = [u.display_name(player) for player in players]
     link = await invite_link(bot, fresh.code)
 
     if fresh.admin_message_id:
@@ -145,7 +176,7 @@ async def refresh_room_messages(bot: Bot, room) -> None:
             bot,
             fresh.admin_chat_id,
             fresh.admin_message_id,
-            t_admin_room.room_panel_msg(title, fresh.timer_sec, count, link),
+            t_admin_room.room_panel_msg(title, fresh.timer_sec, names, link),
             k_admin_room.room_control_keyb(fresh.id, started=fresh.status == u.ROOM_IN_PROGRESS),
         )
 
@@ -155,7 +186,7 @@ async def refresh_room_messages(bot: Bot, room) -> None:
                 bot,
                 player.tg_id,
                 player.lobby_message_id,
-                t_user_room.room_lobby_msg(title, fresh.timer_sec, count),
+                t_user_room.room_lobby_msg(title, fresh.timer_sec, names),
                 k_user_room.room_lobby_keyb(fresh.id),
             )
 
@@ -186,7 +217,7 @@ async def notify_admin_finished(bot: Bot, room) -> None:
             fresh.admin_chat_id,
             fresh.admin_message_id,
             t_admin_room.quiz_finished_msg(title),
-            None,
+            k_admin_room.empty_keyb,
         )
 
 

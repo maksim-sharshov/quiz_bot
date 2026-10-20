@@ -76,12 +76,15 @@ async def choose_timer(callback: CallbackQuery, callback_data: k.QuizTimerCB, st
         category_id=category.id,
         timer_sec=callback_data.timer,
         admin_username=callback.from_user.username,
+        admin_first_name=callback.from_user.first_name,
+        admin_last_name=callback.from_user.last_name,
     )
     link = await s.room.invite_link(callback.bot, room.code)
-    count = await db_admin.count_active_players(room.id)
+    players = await db_admin.get_room_players(room.id)
+    names = [u.display_name(player) for player in players]
 
     panel = await callback.message.edit_text(
-        t_room.room_panel_msg(category.title, room.timer_sec, count, link),
+        t_room.room_panel_msg(category.title, room.timer_sec, names, link),
         reply_markup=k_room.room_control_keyb(room.id),
     )
     await db_admin.set_admin_message(room.id, panel.message_id)

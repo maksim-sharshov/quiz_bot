@@ -33,3 +33,7 @@ def room_control_keyb(room_id: int, started: bool = False) -> InlineKeyboardMark
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+# Пустая клавиатура — явно убирает кнопки (reply_markup=None Telegram игнорирует).
+empty_keyb = InlineKeyboardMarkup(inline_keyboard=[])

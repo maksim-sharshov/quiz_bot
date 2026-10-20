@@ -264,7 +264,13 @@ async def get_player_any_room(tg_id: int) -> QuizRoomPlayers | None:
         return result.scalar_one_or_none()
 
 
-async def add_player(room_id: int, tg_id: int, username: str | None) -> QuizRoomPlayers:
+async def add_player(
+    room_id: int,
+    tg_id: int,
+    username: str | None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+) -> QuizRoomPlayers:
     """Добавить игрока в комнату (или вернуть существующего и реактивировать)."""
     async with async_db_session() as session:
         result = await session.execute(
@@ -278,11 +284,20 @@ async def add_player(room_id: int, tg_id: int, username: str | None) -> QuizRoom
         if player:
             player.is_active = True
             player.username = username
+            player.first_name = first_name
+            player.last_name = last_name
             await session.commit()
             await session.refresh(player)
             return player
 
-        player = QuizRoomPlayers(room_id=room_id, tg_id=tg_id, username=username, is_active=True)
+        player = QuizRoomPlayers(
+            room_id=room_id,
+            tg_id=tg_id,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            is_active=True,
+        )
         session.add(player)
         await session.commit()
         await session.refresh(player)

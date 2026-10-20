@@ -2,6 +2,8 @@
 Подсчёт очков и построение таблицы лидеров.
 """
 
+from bot.utils import display_name
+
 
 def compute_points(selected: set[int], options: list[dict]) -> int:
     """
@@ -31,14 +33,14 @@ def correct_texts(options: list[dict]) -> list[str]:
 def build_leaderboard(players: list) -> list[dict]:
     """
     Таблица лидеров: от первого места до последнего.
-    Возвращает список словарей place / tg_id / username / score.
+    Возвращает список словарей place / tg_id / name / score.
     """
     ordered = sorted(players, key=lambda player: (-player.score, player.date_joined))
     return [
         {
             "place": place,
             "tg_id": player.tg_id,
-            "username": player.username,
+            "name": display_name(player),
             "score": player.score,
         }
         for place, player in enumerate(ordered, start=1)

@@ -101,7 +101,12 @@ async def _run_question(bot: Bot, storage, room, question, options, index: int, 
         )
         for player in players
     ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    except asyncio.CancelledError:
+        # Досрочное завершение квиза: убираем кнопки вариантов у всех игроков.
+        await _remove_question_keyboards(bot, storage, players)
+        raise
 
     selected_map: dict[int, set[int]] = {}
     message_map: dict[int, int] = {}
@@ -122,7 +127,7 @@ async def _run_question(bot: Bot, storage, room, question, options, index: int, 
         await db_admin.add_score(room.id, player.tg_id, points)
         await db_admin.save_answer(room.id, question.id, player.tg_id, sorted(selected), points)
         if points > 0:
-            scorers.append((player.username or f"Игрок {player.tg_id}", points))
+            scorers.append((u.display_name(player), points))
 
     all_players = await db_admin.get_room_players(room.id)
     board = scoring.build_leaderboard(all_players)
@@ -132,7 +137,9 @@ async def _run_question(bot: Bot, storage, room, question, options, index: int, 
     for player in all_players:
         message_id = message_map.get(player.tg_id)
         if message_id:
-            await b.safe_edit_text(bot, player.tg_id, message_id, text, None)
+            await b.safe_edit_text(
+                bot, player.tg_id, message_id, text, k_user_game.empty_keyb
+            )
             continue
         try:
             await b.safe_send(bot, player.tg_id, text)
@@ -215,6 +222,21 @@ async def _ask_player(
     return selected, message.message_id
 
 
+async def _remove_question_keyboards(bot: Bot, storage, players) -> None:
+    """Убрать кнопки вариантов из сообщений с текущим вопросом."""
+    for player in players:
+        key = StorageKey(bot_id=bot.id, chat_id=player.tg_id, user_id=player.tg_id)
+        context = FSMContext(storage=storage, key=key)
+        try:
+            data = await context.get_data()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Не удалось прочитать состояние игрока %s: %s", player.tg_id, exc)
+            continue
+        message_id = data.get("message_id")
+        if message_id:
+            await b.safe_edit_markup(bot, player.tg_id, message_id, k_user_game.empty_keyb)
+
+
 async def _drop_unreachable(bot: Bot, storage, room, tg_id: int) -> None:
     """Исключить заблокировавшего бота игрока и обновить счётчики."""
     logger.warning("Игрок %s недоступен, исключаю из комнаты %s", tg_id, room.id)
@@ -242,6 +264,10 @@ async def _finish(bot: Bot, storage, room) -> None:
         await db_admin.remove_player(room.id, tg_id)
 
     for player in players:
+        if player.lobby_message_id:
+            await b.safe_edit_markup(
+                bot, player.tg_id, player.lobby_message_id, k_user_game.empty_keyb
+            )
         await _clear_state(bot, storage, player.tg_id)
 
     await db_admin.set_room_status(room.id, u.ROOM_FINISHED, finish=True)

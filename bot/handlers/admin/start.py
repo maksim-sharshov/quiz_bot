@@ -35,6 +35,8 @@ async def admin_start(message: Message, command: CommandObject, state: FSMContex
             message.from_user.id,
             message.from_user.username,
             payload[len("room_"):],
+            first_name=message.from_user.first_name,
+            last_name=message.from_user.last_name,
         )
         text = _JOIN_STATUS_TEXTS.get(status)
         if text:

@@ -40,7 +40,13 @@ async def start(message: Message, command: CommandObject, state: FSMContext):
 async def _join_room(message: Message, state: FSMContext, code: str) -> None:
     """Вход игрока в комнату по коду."""
     status = await s.room.enter_room(
-        message.bot, message.chat.id, message.from_user.id, message.from_user.username, code
+        message.bot,
+        message.chat.id,
+        message.from_user.id,
+        message.from_user.username,
+        code,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name,
     )
     text = _JOIN_STATUS_TEXTS.get(status)
     if text:
