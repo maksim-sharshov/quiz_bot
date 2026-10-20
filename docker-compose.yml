@@ -1,18 +1,21 @@
-version: "3.8"
-
 services:
 
   postgres:
-    image: postgres
+    image: postgres:18
     restart: always
     environment:
+      - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_NAME}
     expose:
       - '5432'
     volumes:
-    - ./postgres_data:/var/lib/postgresql
-
+      - ./postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   bot:
     build:
@@ -21,6 +24,39 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      # Внутри Docker сеть с базой — по имени сервиса, а не localhost
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - WEBHOOK_HOST=0.0.0.0
+      - WEBHOOK_PORT=8080
+    ports:
+      # Только localhost: наружу публикует Caddy (или ваш reverse proxy)
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Необязательный reverse proxy с автоматическим HTTPS.
+  # Запуск: docker compose --profile proxy up -d --build
+  # Требует WEBHOOK_DOMAIN в .env (домен должен указывать на этот сервер).
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["proxy"]
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - WEBHOOK_DOMAIN=${WEBHOOK_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      bot:
+        condition: service_healthy
 
 volumes:
-  postgres-data:
+  caddy_data:
+  caddy_config:

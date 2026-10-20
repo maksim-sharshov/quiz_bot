@@ -46,8 +46,45 @@ Telegram-бот для проведения квизов на **aiogram 3**. В 
 Запуск через Docker:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
+
+## Webhook и деплой
+
+Бот работает через **webhook**, если задан `WEBHOOK_BASE_URL` (публичный HTTPS-адрес).
+Если переменная пустая, бот автоматически запускается в режиме **long polling** — это удобно
+для локальной разработки.
+
+Переменные в `.env`:
+
+```
+WEBHOOK_BASE_URL=https://bot.example.com
+WEBHOOK_PATH=/webhook
+WEBHOOK_SECRET=случайная-строка
+WEBHOOK_PORT=8080
+```
+
+Telegram принимает webhook только по HTTPS на портах 443, 80, 88 или 8443, поэтому нужен
+reverse proxy с валидным сертификатом. В `docker-compose.yml` есть готовый **Caddy**
+с автоматическим Let's Encrypt — он выключен по умолчанию (профиль `proxy`):
+
+1. Направьте DNS-запись домена на IP сервера.
+2. Укажите в `.env`:
+   ```
+   WEBHOOK_DOMAIN=bot.example.com
+   WEBHOOK_BASE_URL=https://bot.example.com
+   WEBHOOK_SECRET=случайная-строка
+   ```
+3. Запустите:
+   ```bash
+   docker compose --profile proxy up -d --build
+   ```
+
+Caddy займёт порты 80/443 и проксирует запросы на контейнер `bot:8080`.
+Проверка живости: `GET /health` (в режиме webhook).
+
+Если у вас уже есть свой nginx/Traefik, Caddy не нужен: достаточно проксировать HTTPS-домен
+на `127.0.0.1:8080`. Внутри Docker `POSTGRES_HOST=postgres` задаётся автоматически.
 
 ## Структура проекта
 
