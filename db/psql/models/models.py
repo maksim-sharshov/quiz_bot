@@ -16,7 +16,7 @@ T = TypeVar("T")
 
 
 class ModelAdmin(Generic[T]):
-    
+
     class DoesNotExists(Exception):
         pass
 
@@ -121,7 +121,7 @@ class ModelAdmin(Generic[T]):
     @classmethod
     async def get_first(cls, select_in_load: str | None = None, **kwargs) -> T | None:
         """
-        Возвращает первую запись, удовлетворяющую условиям. 
+        Возвращает первую запись, удовлетворяющую условиям.
         Безопасный аналог get(): не выбрасывает исключений при множественных результатах или их отсутствии.
 
         :param select_in_load: Имя связанной модели для подгрузки (если нужно).
@@ -212,7 +212,7 @@ class ModelAdmin(Generic[T]):
 
 # Хранение всех пользователей
 class Users(Base, ModelAdmin):
-    
+
     __tablename__ = 'users'
 
     id: Mapped[intpk]
@@ -224,35 +224,6 @@ class Users(Base, ModelAdmin):
     )
     date_registration: Mapped[datetime] = mapped_column(default=now_moscow)
 
-
-# Актуальный список фьючерсов для анализа
-class Futures(Base, ModelAdmin):
-    
-    __tablename__ = 'futures'
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    futures: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-
-
-# Для хранения данных по VA фьючерсам.
-class VAFuturesData(Base, ModelAdmin):
-
-    __tablename__ = "va_futures_data"
-
-    id: Mapped[intpk]
-    date: Mapped[datetime] = mapped_column(default=now_moscow)
-    futures: Mapped[str]
-    timeframe: Mapped[str]
-    price: Mapped[float]
-    percent: Mapped[float] = mapped_column(comment="Сколько осталось до ближ. уровня в %")
-    info: Mapped[dict] = mapped_column(
-        JSONB,
-        nullable=False,
-        comment="Структурированные данные по VA (пример: {'4h': {'vah':123, 'poc':2342, 'val':23432}, '1h': {...}})"
-    )
-
-
-# --- Квиз «Крис» ---
 
 # Категории вопросов
 class QuizCategories(Base, ModelAdmin):
